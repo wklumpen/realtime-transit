@@ -398,7 +398,7 @@ def pull_wmata_bus():
         row['trip_id'] = message['tripUpdate']['trip']['tripId']
         row['route_id'] = message['tripUpdate']['trip']['routeId']
         row['vehicle_id'] = message['tripUpdate']['vehicle']['id']
-        row['delay'] = message['tripUpdate']['delay']
+        row['delay'] = message['tripUpdate'].get('delay')
         collector.append(row)
     df_trip = pd.DataFrame(collector)
     
@@ -496,15 +496,6 @@ def grab_rt_feeds():
     rt_cta_bus = result6.get()
     rt_sf = result7.get()
     rt_wmata_bus = result8.get()
-    
-    #rt_mta_bus.to_csv("mta_rt.csv")
-    #rt_mta_mnr.to_csv("mnr_rt.csv")
-    #rt_mta_lirr.to_csv("lirr_rt.csv")
-    #rt_septa_rail.to_csv("septa_rail_rt.csv")
-    #rt_septa_bus.to_csv("septa_bus_rt.csv")
-    #rt_cta_bus.to_csv("cta_rt.csv")
-    #rt_sf.to_csv("sf_rt.csv")
-    #rt_wmata_bus.to_csv("wmata_rt.csv")
     
     return rt_mta_bus, rt_mta_mnr, rt_mta_lirr, rt_septa_bus, rt_septa_rail, rt_cta_bus, rt_sf, rt_wmata_bus
 

@@ -7,6 +7,7 @@ Created on Wed Jan 20 13:57:38 2021
 
 from subprocess import run
 from time import sleep
+import traceback
 
 # Path and name to the script you are trying to start
 file_path = "pull_reliability.py" 
@@ -16,8 +17,9 @@ def start_script():
     try:
         # Make sure 'python' command is available
         run("python " + file_path, check=True) 
-    except:
+    except Exception:
         # Script crashed, lets restart it!
+        traceback.print_exc()
         handle_crash()
 
 def handle_crash():

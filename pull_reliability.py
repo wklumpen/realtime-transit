@@ -29,9 +29,12 @@ import schedule
 import random
 import time
 import sys
+import traceback
 
 sys.path.append(".")
+sys.path.append("../equity-pulse-db")
 
+from db import Realtime, Log
 
 
 def on_time_percent(df):
@@ -101,9 +104,9 @@ def metric_report():
     date_now = date.today().strftime("%Y%m%d")
     time_now = datetime.datetime.now().time().strftime("%H:%M:%S")
     utc_dt_aware = datetime.datetime.now(datetime.timezone.utc)
-    
-    print("Getting realtime feeds")
+    Log.info(function='reliability', message="I'm awake! Running realtime metrics")
     rt_mta_bus, rt_mta_mnr, rt_mta_lirr, rt_septa_bus, rt_septa_rail, rt_cta, rt_sf, rt_wmata_bus = rt_inputs.grab_rt_feeds()
+    Log.debug(function='reliability', message='Fetched realtime feeds')
     
     #Compile all the metrics
     timestamp = []
@@ -231,23 +234,44 @@ def metric_report():
                 fraction.append(rt_fraction(df_temp[df_temp["mode"] == "Rail"]))
             
         
-    reliability_metrics = {'Timestamp': timestamp, 
-                           'Region' : region,
-                           'Agency' : agency,
-                           'Mode' : mode,
-                           'Average delay absolute': abs_delay,
-                           'Average delay late': late_delay,
-                           'Average delay early': early_delay,
-                           'On time performance': otp, 
-                           'Fraction': fraction}
+    reliability_metrics = {'timestamp': timestamp, 
+                           'region' : region,
+                           'agency' : agency,
+                           'mode' : mode,
+                           'delay_abs': abs_delay,
+                           'delay_late': late_delay,
+                           'delay_early': early_delay,
+                           'otp': otp, 
+                           'fraction': fraction}
 
     reliability_metrics = pd.DataFrame(reliability_metrics)
     
-    print("Printing out metrics")
+    # TODO: Do some cleaning here!
+
+    reliability_metrics['delay_abs'] = reliability_metrics['delay_abs'].where(
+        reliability_metrics['delay_abs'].astype(float) > -1800)
+    reliability_metrics['delay_early'] = reliability_metrics['delay_early'].where(
+        reliability_metrics['delay_early'].astype(float) < 1800)
+    reliability_metrics['delay_late'] = reliability_metrics['delay_late'].where(
+        reliability_metrics['delay_late'].astype(float) < 1800)
+
     # Write out a csv file with the metrics
-    reliability_metrics.to_csv('reliability_metric.csv', mode='a', header=False, index=False)   
-    
-    print("Metrics completed, sleep until next hour")
+    reliability_metrics.to_csv('reliability_metric.csv', mode='a', header=False, index=False)
+    Log.debug(function='reliability', message="Appended metrics to file")
+
+    # Put it into the database 
+    for idx, row in reliability_metrics.iterrows():
+        Realtime.create(
+            timestamp=row['timestamp'],
+            region=row['region'],
+            agency=row['agency'],
+            mode=row['mode'],
+            delay_abs=row['delay_abs'],
+            delay_late=row['delay_late'],
+            otp=row['otp'],
+            fraction=row['fraction']
+        )
+    Log.info(function='reliability', message="Inserted reliability metrics")
     
     #Make it sleep until the next hour if it is within the same hour
     curr_time = datetime.datetime.now().time().strftime("%H:%M:%S")
@@ -553,9 +577,10 @@ def metric_report2():
 
 
 def schedule_next_run():
-   time_str = ':{:02d}'.format(random.randint(0, 59))   
+   time_str = ':{:02d}'.format(random.randint(0, 59))
+   time_str = ':32'   
    schedule.clear()
-   print("Scheduled for {}".format(time_str))
+   Log.debug(function='reliability', message=f"Scheduled for {time_str}")
    schedule.every().hour.at(time_str).do(metric_report)
 
 
@@ -564,7 +589,9 @@ if __name__ == "__main__":
     while True:
         try:
             schedule.run_pending()
-        except:
+        except Exception:
+            # Script crashed, lets restart it!
+            traceback.print_exc()
             print('Restarting script')
             curr_time = datetime.datetime.now().time().strftime("%H:%M:%S")
             min_time = datetime.datetime.strptime(curr_time, '%H:%M:%S').time().minute

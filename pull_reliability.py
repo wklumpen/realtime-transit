@@ -252,11 +252,18 @@ def metric_report():
         reliability_metrics['delay_abs'].astype(float) > -1800)
     reliability_metrics['delay_early'] = reliability_metrics['delay_early'].where(
         reliability_metrics['delay_early'].astype(float) < 1800)
+
     reliability_metrics['delay_late'] = reliability_metrics['delay_late'].where(
         reliability_metrics['delay_late'].astype(float) < 1800)
 
+    reliability_metrics['otp'] = reliability_metrics['otp'].where(
+        reliability_metrics['otp'].astype(float) > 20)
+
     # Write out a csv file with the metrics
     reliability_metrics.to_csv('reliability_metric.csv', mode='a', header=False, index=False)
+    
+    # Convert to none data types
+    reliability_metrics = reliability_metrics.where(pd.notnull(reliability_metrics), None)
     Log.debug(function='reliability', message="Appended metrics to file")
 
     # Put it into the database 
@@ -267,6 +274,7 @@ def metric_report():
             agency=row['agency'],
             mode=row['mode'],
             delay_abs=row['delay_abs'],
+            delay_early=row['delay_early'],
             delay_late=row['delay_late'],
             otp=row['otp'],
             fraction=row['fraction']
@@ -578,7 +586,7 @@ def metric_report2():
 
 def schedule_next_run():
    time_str = ':{:02d}'.format(random.randint(0, 59))
-   time_str = ':32'   
+#    time_str = ':10'   
    schedule.clear()
    Log.debug(function='reliability', message=f"Scheduled for {time_str}")
    schedule.every().hour.at(time_str).do(metric_report)

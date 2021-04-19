@@ -599,7 +599,10 @@ if __name__ == "__main__":
             schedule.run_pending()
         except Exception:
             # Script crashed, lets restart it!
+
             traceback.print_exc()
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            Log.error('realtime', '\n'.join(traceback.format_exception_only(exc_type, exc_value)))
             print('Restarting script')
             curr_time = datetime.datetime.now().time().strftime("%H:%M:%S")
             min_time = datetime.datetime.strptime(curr_time, '%H:%M:%S').time().minute
